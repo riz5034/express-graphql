@@ -42,7 +42,7 @@
     "publish-npm": "npm install && npm run build && npm publish ./dist --access public"
   },
   "dependencies": {
-    "@zhaor/graphiql": "^0.14.9",
+    "@zhaor/graphiql": "^0.15.0",
     "accepts": "^1.3.7",
     "content-type": "^1.0.4",
     "http-errors": "^1.7.3",
