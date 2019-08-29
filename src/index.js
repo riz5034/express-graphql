@@ -27,6 +27,7 @@ import {
 
 import { parseBody } from './parseBody';
 import { renderGraphiQL, type GraphiQLOptions } from './renderGraphiQL';
+import { runInNewContext } from 'vm';
 
 type $Request = IncomingMessage;
 type $Response = ServerResponse & {| json?: ?(data: mixed) => void |};
@@ -73,6 +74,12 @@ export type OptionsData = {|
    * in additional to those defined by the GraphQL spec.
    */
   validationRules?: ?$ReadOnlyArray<(ValidationContext) => ASTVisitor>,
+
+  /**
+   * An optional function which will be used to perform functions after the GraphQL
+   * middlware should be finished 
+   */
+  callbacks?: ?(req: $Request, res: $Response) => Promise<Boolean>,
 
   /**
    * An optional function which will be used to validate instead of default `validate`
@@ -184,7 +191,7 @@ function graphqlHTTP(options: Options): Middleware {
     throw new Error('GraphQL middleware requires options.');
   }
 
-  return function graphqlMiddleware(request: $Request, response: $Response) {
+  return function graphqlMiddleware(request: $Request, response: $Response, next) {
     // Higher scoped variables are referred to at various stages in the
     // asynchronous state machine below.
     let context;
@@ -196,8 +203,8 @@ function graphqlHTTP(options: Options): Middleware {
     let parseFn = parse;
     let extensionsFn;
     let showGraphiQL = false;
+    let callbacks;
     let query;
-
     let documentAST;
     let variables;
     let operationName;
@@ -380,23 +387,31 @@ function graphqlHTTP(options: Options): Middleware {
             result,
             options: typeof showGraphiQL !== 'boolean' ? showGraphiQL : {},
           });
-          return sendResponse(response, 'text/html', payload);
+          return executeCallbacks(callbacks, request, response).then(() => {
+            return sendResponse(response, 'text/html', payload);
+          });
         }
 
         // At this point, result is guaranteed to exist, as the only scenario
         // where it will not is when showGraphiQL is true.
         if (!result) {
-          throw httpError(500, 'Internal Error');
+          executeCallbacks(callbacks, request, response).then(() => {
+            throw httpError(500, 'Internal Error');
+          });
         }
 
         // If "pretty" JSON isn't requested, and the server provides a
         // response.json method (express), use that directly.
         // Otherwise use the simplified sendResponse method.
         if (!pretty && typeof response.json === 'function') {
-          response.json(result);
+          executeCallbacks(callbacks, request, response).then(() => {
+            response.json(result);
+          });
         } else {
           const payload = JSON.stringify(result, null, pretty ? 2 : 0);
-          sendResponse(response, 'application/json', payload);
+          executeCallbacks(callbacks, request, response).then(() => {
+            sendResponse(response, 'application/json', payload);
+          });
         }
       });
 
@@ -430,6 +445,7 @@ function graphqlHTTP(options: Options): Middleware {
         formatErrorFn;
       extensionsFn = optionsData.extensions;
       pretty = optionsData.pretty;
+      callbacks = optionsData.callbacks;
       return optionsData;
     }
   };
@@ -508,4 +524,14 @@ function sendResponse(response: $Response, type: string, data: string): void {
   response.setHeader('Content-Type', type + '; charset=utf-8');
   response.setHeader('Content-Length', String(chunk.length));
   response.end(chunk);
+}
+
+/**
+ * Helper function for running callbacks at the end of GraphQL middlware
+ */
+function executeCallbacks(callbacks: Promise<Boolean>, request: $Request, response: $Response) {
+  if(callbacks) {
+    return callbacks(request, response);
+  }
+  return Promise.resolve();
 }
