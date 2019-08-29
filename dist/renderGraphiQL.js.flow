@@ -70,7 +70,7 @@ add "&raw" to the end of the URL within a browser.
   </style>
   <style>
     // zhaor/graphiql.css
-    ${loadFileStaticlyFromNPM('@zhaor/graphiql/graphiql.css')}
+    ${loadFileStaticlyFromNPM('graphiql/graphiql.css')}
   <script>
     // promise-polyfill/dist/polyfill.min.js
     ${loadFileStaticlyFromNPM('promise-polyfill/dist/polyfill.min.js')}
@@ -89,7 +89,7 @@ add "&raw" to the end of the URL within a browser.
   </script>
   <script>
     // zhaor/graphiql.min.js
-    ${loadFileStaticlyFromNPM('@zhaor/graphiql/graphiql.min.js')}
+    ${loadFileStaticlyFromNPM('graphiql/graphiql.min.js')}
   </script>
 </head>
 <body>
