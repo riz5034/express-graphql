@@ -403,15 +403,49 @@ function graphqlHTTP(options: Options): Middleware {
         // If "pretty" JSON isn't requested, and the server provides a
         // response.json method (express), use that directly.
         // Otherwise use the simplified sendResponse method.
-        if (!pretty && typeof response.json === 'function') {
-          executeCallbacks(callbacks, request, response).then(() => {
-            response.json(result);
+        let output = 'json';
+
+        if (request && request.query && typeof request.query.output !== 'undefined') {
+          output = request.query.output;
+        }
+
+        if (output === 'csv') {
+          // Convert result json to csv
+          // Source: https://github.com/kauegimenes/jsonexport
+          const jsonexport = require('../../../functions/jsonexport/dist/index'); // Local copy of package
+
+          // TODO: Move locally when download button is completed
+          const {
+            handlePrimArr
+          } = require('../../../functions');
+
+          let res = result.data[Object.keys(result.data)[0]]; // Consider changing to check against dictionary
+          // Alt code 10 (alt + 10) used to split primitive array values, match in functions parsePrimitiveArr() and findPrimCol()
+
+          let splitter = '◙';
+          jsonexport(JSON.parse(JSON.stringify(res)), {
+            fillGaps: true,
+            arrayPathString: splitter
+          }, function (err, csv) {
+            if (err) return console.log(err);
+            handlePrimArr(csv, splitter).then(output => {
+              console.log(output);
+              response.setHeader('Content-type', "application/octet-stream");
+              response.setHeader('Content-disposition', 'attachment; filename=output.csv');
+              response.send(output);
+            });
           });
-        } else {
-          const payload = JSON.stringify(result, null, pretty ? 2 : 0);
-          executeCallbacks(callbacks, request, response).then(() => {
-            sendResponse(response, 'application/json', payload);
-          });
+        } else if (output === 'json') {
+          if (!pretty && typeof response.json === 'function') {
+            executeCallbacks(callbacks, request, response).then(() => {
+              response.json(result);
+            });
+          } else {
+            const payload = JSON.stringify(result, null, pretty ? 2 : 0);
+            executeCallbacks(callbacks, request, response).then(() => {
+              sendResponse(response, 'application/json', payload);
+            });
+          }
         }
       });
 
