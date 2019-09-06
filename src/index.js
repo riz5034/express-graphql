@@ -412,12 +412,12 @@ function graphqlHTTP(options: Options): Middleware {
         if (output === 'csv') {
           // Convert result json to csv
           // Source: https://github.com/kauegimenes/jsonexport
-          const jsonexport = require('../../../functions/jsonexport/dist/index'); // Local copy of package
+          const jsonexport = require('../functions/jsonexport/dist/index'); // Local copy of package
 
           // TODO: Move locally when download button is completed
           const {
             handlePrimArr
-          } = require('../../../functions');
+          } = require('../functions/functions');
 
           let res = result.data[Object.keys(result.data)[0]]; // Consider changing to check against dictionary
           // Alt code 10 (alt + 10) used to split primitive array values, match in functions parsePrimitiveArr() and findPrimCol()
